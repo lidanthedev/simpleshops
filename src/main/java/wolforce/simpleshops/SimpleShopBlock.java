@@ -1,8 +1,10 @@
 package wolforce.simpleshops;
 
+import java.awt.*;
 import java.util.HashMap;
 import java.util.List;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -27,35 +29,38 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import wolforce.simpleshops.utils.Util;
 
 public class SimpleShopBlock extends Block implements EntityBlock {
-	
+
 	private static final float F = 1f / 16f;
 	private static final VoxelShape shape = Shapes.box(F, 0, F, 15 * F, 11 * F, 15 * F);
 	public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
-	
+	private static final Logger log = LoggerFactory.getLogger(SimpleShopBlock.class);
+
 	public final boolean isCreative;
-	
+
 	public SimpleShopBlock(Properties props, boolean isCreative) {
 		super(props);
 		this.isCreative = isCreative;
 		this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
 	}
-	
+
 	@Override
 	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
 		builder.add(FACING);
 	}
-	
+
 	protected void fillStateContainer(StateDefinition.Builder<Block, BlockState> builder) {
 		builder.add(FACING);
 	}
-	
+
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
 		return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection());
 	}
-	
+
 	@Override
 	public void setPlacedBy(Level world, BlockPos pos, BlockState state, LivingEntity entity, ItemStack stack) {
 		if (world.isClientSide)
@@ -66,9 +71,9 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 		SimpleShopTileEntity te = (SimpleShopTileEntity) _te;
 		te.setOwner(entity);
 	}
-	
+
 	private HashMap<String, Long> playersLastClick = new HashMap<>();
-	
+
 	@Override
 	public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult trace) {
 		if (world.isClientSide)
@@ -77,11 +82,11 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 		if (!(_te instanceof SimpleShopTileEntity))
 			return InteractionResult.PASS;
 		SimpleShopTileEntity te = (SimpleShopTileEntity) _te;
-		
+
 		if (te.isOwner(this, player)) {
 			ItemStack handStack = player.getItemInHand(hand);
 			if (!handStack.isEmpty()) {
-				
+
 				if (!isCreative && handStack.getItem() instanceof StockBarItem) {
 					ItemStack prevBar = te.getBar();
 					if (prevBar != null && !prevBar.isEmpty()) {
@@ -93,7 +98,7 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 					handStack.shrink(1);
 					return InteractionResult.SUCCESS;
 				}
-				
+
 				ItemStack cost = te.getCost();
 				if (cost.isEmpty()) {
 					te.setCost(handStack);
@@ -103,7 +108,7 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 						te.setOutputStack(handStack);
 					} else if (out.isEmpty() || out.sameItem(handStack) && handStack.getCount() >= out.getCount()) {
 						player.setItemInHand(hand, te.insertInv(player, handStack));
-						
+
 					}
 				}
 			} else if (!isCreative) {
@@ -119,12 +124,25 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 			}
 		} else {
 			ItemStack out = te.getOutputStack();
-			if (out != null && !out.isEmpty())
+			if (out != null && !out.isEmpty()) {
+				if (player.isShiftKeyDown()){
+
+					Minecraft.getInstance().setScreen(new ConfirmScreen(
+							out,
+									Component.literal("Are you sure?"),
+							Component.literal("Confirm"),
+							Component.literal("Cancel"),
+							() -> System.out.println("Confirmed!"),
+							() -> System.out.println("Cancelled!")
+					));
+				}
+				log.info("buying cool {}", out);
 				te.tryBuy(player, player.getItemInHand(hand), isCreative);
+			}
 		}
 		return InteractionResult.SUCCESS;
 	}
-	
+
 	@Override
 	public void attack(BlockState state, Level world, BlockPos pos, Player player) {
 		if (world.isClientSide)
@@ -141,12 +159,12 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 			}
 		}
 	}
-	
+
 	@Override
 	public VoxelShape getShape(BlockState p_220053_1_, BlockGetter p_220053_2_, BlockPos p_220053_3_, CollisionContext p_220053_4_) {
 		return shape;
 	}
-	
+
 	@Override
 	public void appendHoverText(ItemStack stack, BlockGetter world, List<Component> lines, TooltipFlag f) {
 		super.appendHoverText(stack, world, lines, f);
@@ -155,7 +173,7 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 				lines.add(line.createTextComponent());
 		}
 	}
-	
+
 	@Override
 	public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
 		return new SimpleShopTileEntity(pos, state);
