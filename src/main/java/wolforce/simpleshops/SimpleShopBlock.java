@@ -125,18 +125,6 @@ public class SimpleShopBlock extends Block implements EntityBlock {
 		} else {
 			ItemStack out = te.getOutputStack();
 			if (out != null && !out.isEmpty()) {
-				if (player.isShiftKeyDown()){
-
-					Minecraft.getInstance().setScreen(new ConfirmScreen(
-							out,
-									Component.literal("Are you sure?"),
-							Component.literal("Confirm"),
-							Component.literal("Cancel"),
-							() -> System.out.println("Confirmed!"),
-							() -> System.out.println("Cancelled!")
-					));
-				}
-				log.info("buying cool {}", out);
 				te.tryBuy(player, player.getItemInHand(hand), isCreative);
 			}
 		}
